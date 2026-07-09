@@ -3,30 +3,28 @@ from pathlib import Path
 import pandas as pd
 
 
-CAMINHO_MATERIAIS = Path("data") / "materiais.csv"
+CAMINHO_MATERIAIS = Path(__file__).resolve().parent.parent / "data" / "materiais.csv"
 
 
 def carregar_materiais():
     """
-    Carrega o banco de materiais a partir de um arquivo CSV separado por ponto e vírgula.
+    Carrega o banco de materiais a partir de um arquivo CSV separado por ponto e virgula.
     """
 
     try:
         materiais = pd.read_csv(
             CAMINHO_MATERIAIS,
             sep=";",
-            encoding="utf-8-sig"
+            encoding="utf-8-sig",
         )
-
     except UnicodeDecodeError:
         materiais = pd.read_csv(
             CAMINHO_MATERIAIS,
             sep=";",
-            encoding="latin1"
+            encoding="latin1",
         )
-
     except FileNotFoundError:
-        print("Erro: arquivo materiais.csv não encontrado.")
+        print("Erro: arquivo materiais.csv nao encontrado.")
         return None
 
     materiais.columns = (
@@ -41,7 +39,7 @@ def carregar_materiais():
         "material",
         "limite_fadiga_mpa",
         "limite_resistencia_mpa",
-        "limite_escoamento_mpa"
+        "limite_escoamento_mpa",
     ]
 
     colunas_faltantes = [
@@ -50,10 +48,24 @@ def carregar_materiais():
     ]
 
     if colunas_faltantes:
-        print("Erro: o arquivo materiais.csv está com colunas faltando.")
+        print("Erro: o arquivo materiais.csv esta com colunas faltando.")
         print(f"Colunas encontradas: {list(materiais.columns)}")
         print(f"Colunas faltantes: {colunas_faltantes}")
         return None
+
+    for coluna in [
+        "id",
+        "limite_fadiga_mpa",
+        "limite_resistencia_mpa",
+        "limite_escoamento_mpa",
+    ]:
+        materiais[coluna] = pd.to_numeric(materiais[coluna], errors="coerce")
+
+    if materiais[colunas_obrigatorias].isnull().any().any():
+        print("Erro: o arquivo materiais.csv possui valores invalidos ou vazios.")
+        return None
+
+    materiais["id"] = materiais["id"].astype(int)
 
     return materiais
 
@@ -63,7 +75,7 @@ def listar_materiais(materiais):
     Exibe os materiais cadastrados.
     """
 
-    print("\nMateriais disponíveis:")
+    print("\nMateriais disponiveis:")
     print("-" * 60)
 
     for _, material in materiais.iterrows():
@@ -74,23 +86,20 @@ def listar_materiais(materiais):
 
 def selecionar_material(materiais):
     """
-    Permite ao usuário selecionar um material pelo ID.
+    Permite ao usuario selecionar um material pelo ID.
     """
 
     while True:
         try:
-            materiais = pd.read_csv(
-                CAMINHO_MATERIAIS,
-                sep=";",
-                encoding="utf-8-sig"
-            )
-
-        except UnicodeDecodeError:
-            materiais = pd.read_csv(
-                CAMINHO_MATERIAIS,
-                sep=";",
-                encoding="cp1252"
-            )
-
+            id_material = int(input("Digite o ID do material: "))
         except ValueError:
-            print("Entrada inválida. Digite apenas o número do ID.")
+            print("Entrada invalida. Digite apenas o numero do ID.")
+            continue
+
+        material = materiais.loc[materiais["id"] == id_material]
+
+        if material.empty:
+            print("ID nao encontrado. Escolha um dos materiais listados.")
+            continue
+
+        return material.iloc[0]
