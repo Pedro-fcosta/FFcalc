@@ -1,546 +1,202 @@
-# FFCalc — Sistema de Análise de Fadiga e Fluência
+# FFCalc - Sistema de Analise de Fadiga e Fluencia
 
-O **FFCalc** é um sistema desenvolvido em Python para análise preliminar de **fadiga**, **fluência**, **vida em serviço** e **dano em componentes metálicos**.
+O **FFCalc** e um sistema em Python para analise preliminar e educacional de fadiga, fluencia e comparacao de materiais metalicos. O projeto possui interface grafica em CustomTkinter, modo terminal, banco de materiais em CSV e graficos com Matplotlib.
 
-O projeto aplica conceitos de Engenharia Mecânica, Resistência dos Materiais, Materiais de Construção Mecânica e Análise de Falhas em uma ferramenta computacional com interface gráfica e modo terminal.
+> Observacao importante: o FFCalc tem carater didatico e preliminar. Ele nao substitui normas tecnicas, ensaios experimentais, propriedades reais certificadas, avaliacao de integridade estrutural ou analise de profissional habilitado.
 
-> **Aviso importante:** o FFCalc possui caráter educacional e preliminar. O sistema não substitui normas técnicas, ensaios experimentais, avaliação de integridade estrutural, análise por elementos finitos ou avaliação feita por profissional habilitado.
+## Funcionalidades
 
----
+- Interface grafica em CustomTkinter.
+- Modo terminal opcional.
+- Banco de materiais em `data/materiais.csv`.
+- Modulo de Fadiga.
+- Modulo de Fluencia.
+- Modulo Dashboard para comparacao preliminar de materiais.
+- Graficos integrados com Matplotlib.
+- Exportacao de graficos em PNG para a pasta `outputs/`.
 
-## Visão geral
+## Modulo de Fadiga
 
-O FFCalc foi criado para estudar condições mecânicas associadas a dois mecanismos importantes de dano em componentes metálicos:
+O modulo de fadiga calcula parametros de carregamento ciclico e fatores de seguranca preliminares.
 
-- **fadiga**, associada a carregamentos cíclicos;
-- **fluência**, associada a tensão, tempo e temperatura elevada.
+Entradas principais:
 
-A versão atual possui:
+- tensao maxima `sigma_max` [MPa];
+- tensao minima `sigma_min` [MPa];
+- material selecionado no banco CSV.
 
-- interface gráfica em **CustomTkinter**;
-- modo terminal opcional;
-- módulo de análise de fadiga;
-- módulo de análise de fluência;
-- banco inicial de materiais em CSV;
-- gráficos técnicos;
-- exportação de gráficos em PNG;
-- validação básica de entradas e materiais.
+Resultados:
 
----
+- tensao alternada;
+- tensao media;
+- razao de carregamento `R`;
+- fator de seguranca por Goodman;
+- fator de seguranca por Soderberg;
+- fator de seguranca por Gerber;
+- classificacao preliminar de risco;
+- grafico `sigma_m x sigma_a`;
+- grafico comparativo dos fatores de seguranca.
 
-## Funcionalidades atuais
+## Modulo de Fluencia
 
-### Módulo de fadiga
+O modulo de fluencia estima, de forma didatica, indicadores preliminares de risco por fluencia.
 
-O módulo de fadiga calcula:
+Entradas principais:
 
-- tensão máxima;
-- tensão mínima;
-- tensão alternada;
-- tensão média;
-- razão de carregamento;
-- fator de segurança por Goodman;
-- fator de segurança por Soderberg;
-- fator de segurança por Gerber;
-- menor fator de segurança encontrado;
-- classificação preliminar de risco;
-- gráfico do diagrama de fadiga;
-- gráfico comparativo dos fatores de segurança.
+- tensao aplicada [MPa];
+- temperatura de operacao [C];
+- temperatura de fusao [C];
+- tempo de operacao [h];
+- coeficiente de Norton `A`;
+- expoente de Norton `n`;
+- energia de ativacao `Q` [kJ/mol];
+- deformacao limite [%].
 
-Critérios implementados:
+Resultados:
 
-```text
-Goodman:
-sigma_a / Se + sigma_m / Sut = 1 / n
+- temperatura homologa `T/Tf`;
+- taxa estimada de fluencia;
+- deformacao acumulada;
+- tempo estimado ate o limite informado;
+- consumo do limite de deformacao;
+- classificacao preliminar;
+- grafico de taxa por temperatura;
+- grafico de deformacao acumulada no tempo.
 
-Soderberg:
-sigma_a / Se + sigma_m / Sy = 1 / n
+## Modulo Dashboard
 
-Gerber:
-sigma_a / Se + (sigma_m / Sut)^2 = 1 / n
-```
+O Dashboard compara todos os materiais cadastrados sob uma mesma condicao de operacao. A ideia e responder, de forma preliminar:
 
-Onde:
+> Para esta tensao, temperatura e tempo de operacao, quais materiais parecem mais adequados?
 
-```text
-sigma_a = tensão alternada
-sigma_m = tensão média
-Se      = limite de fadiga
-Sut     = limite de resistência
-Sy      = limite de escoamento
-n       = fator de segurança
-```
+Entradas:
 
----
+- tensao maxima de fadiga `sigma_max` [MPa];
+- tensao minima de fadiga `sigma_min` [MPa];
+- tensao de operacao para fluencia `sigma_creep` [MPa];
+- temperatura de operacao [C];
+- tempo de operacao [h];
+- deformacao limite [%].
 
-### Módulo de fluência
+O Dashboard calcula, para cada material:
 
-O módulo de fluência calcula:
+- menor fator de seguranca em fadiga;
+- consumo estimado do limite de deformacao por fluencia;
+- temperatura homologa;
+- classificacao preliminar de fadiga;
+- classificacao preliminar de fluencia;
+- score geral de adequacao preliminar;
+- ranking ordenado de materiais.
 
-- temperatura homóloga;
-- taxa estimada de fluência;
-- deformação acumulada;
-- consumo do limite de deformação;
-- tempo estimado até atingir o limite de deformação;
-- classificação preliminar da condição;
-- gráfico de taxa de fluência por temperatura;
-- gráfico de deformação acumulada no tempo.
+Graficos do Dashboard:
 
-Modelo simplificado utilizado:
+- fator de seguranca em fadiga por material;
+- consumo do limite de fluencia por material;
+- score geral por material.
 
-```text
-Temperatura homóloga:
-T_h = T_operacao / T_fusao
-
-Lei de Norton com termo térmico tipo Arrhenius:
-taxa = A * sigma^n * exp(-Q / (R * T))
-```
-
-Onde:
-
-```text
-A     = coeficiente de Norton
-n     = expoente de Norton
-sigma = tensão aplicada
-Q     = energia de ativação
-R     = constante universal dos gases
-T     = temperatura absoluta em Kelvin
-```
-
-> Os parâmetros de fluência usados na versão atual são valores didáticos/presets simplificados. Para aplicação real, é necessário utilizar dados experimentais, normas aplicáveis e informações específicas do material.
-
----
-
-## Interface gráfica
-
-Por padrão, o sistema abre a interface gráfica.
-
-```bash
-python main.py
-```
-
-A interface possui:
-
-- seleção entre os módulos **Fadiga** e **Fluência**;
-- campos de entrada para os dados de cálculo;
-- seleção de material;
-- cards com os principais resultados;
-- área de critérios;
-- visualização gráfica;
-- botão para salvar gráfico em PNG;
-- botão para carregar exemplo.
-
----
-
-## Modo terminal
-
-Além da interface gráfica, o FFCalc também pode ser executado pelo terminal.
-
-### Fadiga
-
-```bash
-python main.py --cli --modulo fadiga
-```
-
-### Fluência
-
-```bash
-python main.py --cli --modulo fluencia
-```
-
----
-
-## Exemplo de uso — fadiga
-
-Entrada:
-
-```text
-sigma_max = 250 MPa
-sigma_min = 50 MPa
-material = Aco carbono generico
-```
-
-Propriedades do material:
-
-```text
-Se  = 200 MPa
-Sut = 500 MPa
-Sy  = 350 MPa
-```
-
-Resultados aproximados:
-
-```text
-sigma_a = 100 MPa
-sigma_m = 150 MPa
-R = 0.200
-
-Goodman  = 1.25
-Soderberg = 1.08
-Gerber   = 1.69
-```
-
-Interpretação preliminar:
-
-```text
-A menor margem ocorre pelo critério de Soderberg.
-Como o menor fator está entre 1 e 2, a condição exige atenção.
-```
-
----
-
-## Exemplo de uso — fluência
-
-Entrada didática:
-
-```text
-tensao = 120 MPa
-temperatura de operacao = 550 °C
-temperatura de fusao = 1450 °C
-tempo de operacao = 10000 h
-A = 1.00e-02
-n = 4.00
-Q = 220 kJ/mol
-deformacao limite = 1%
-```
-
-Resultados aproximados:
-
-```text
-Temperatura homóloga = 0.478
-Taxa estimada = 2.272e-08 1/h
-Deformação acumulada = 0.0227%
-Consumo do limite = 2.27%
-Tempo até limite ≈ 50.24 anos
-```
-
-Interpretação preliminar:
-
-```text
-Baixo consumo do limite de deformação para os dados informados.
-```
-
----
+O resultado usa termos como "mais adequado preliminarmente", "avaliar com cautela" e "pouco adequado preliminarmente". Ele nao indica selecao definitiva de material para projeto real.
 
 ## Banco de materiais
 
-O arquivo de materiais fica em:
+O arquivo principal e:
 
 ```text
 data/materiais.csv
 ```
 
-Formato atual:
+Colunas obrigatorias:
 
-```csv
-id;material;limite_fadiga_mpa;limite_resistencia_mpa;limite_escoamento_mpa;observacao
-1;Aco carbono generico;200;500;350;Valores didaticos para teste inicial
-2;Aco ASTM A36;160;400;250;Valores aproximados para uso educacional
-3;Aco ASTM A572 Gr 50;190;450;345;Valores aproximados para uso educacional
-4;Aco inoxidavel austenitico generico;180;520;215;Valores aproximados para uso educacional
-5;Aluminio 7075-T6;160;570;500;Valores aproximados para uso educacional
+- `id`
+- `material`
+- `limite_fadiga_mpa`
+- `limite_resistencia_mpa`
+- `limite_escoamento_mpa`
+- `observacao`
+
+O Dashboard funciona mesmo sem propriedades especificas de fluencia no CSV. Quando essas propriedades nao existem, o sistema usa presets didaticos por tipo de material.
+
+Colunas opcionais futuras:
+
+- `temperatura_fusao_c`
+- `norton_a`
+- `norton_n`
+- `energia_ativacao_kj_mol`
+
+## Como executar
+
+Instale as dependencias:
+
+```powershell
+pip install -r requirements.txt
 ```
 
-Observações:
+Execute a interface grafica:
 
-- o separador usado é `;`;
-- os nomes estão sem acento para evitar problemas de codificação no Windows;
-- os valores são didáticos e aproximados;
-- o sistema valida colunas obrigatórias e valores numéricos;
-- o arquivo é lido com tratamento para codificação `utf-8-sig` e `latin1`.
+```powershell
+python main.py
+```
 
----
+Execute o modo terminal:
+
+```powershell
+python main.py --cli --modulo fadiga
+python main.py --cli --modulo fluencia
+python main.py --cli --modulo dashboard
+```
+
+## Exportacao de graficos
+
+Os graficos sao salvos em:
+
+```text
+outputs/
+```
+
+Arquivos gerados:
+
+- `grafico_fadiga.png`
+- `grafico_fluencia.png`
+- `grafico_dashboard.png`
 
 ## Estrutura do projeto
 
 ```text
-FFcalc/
-│
-├── main.py
-├── README.md
-├── requirements.txt
-├── .gitignore
-│
-├── data/
-│   └── materiais.csv
-│
-├── outputs/
-│   ├── grafico_fadiga.png
-│   └── grafico_fluencia.png
-│
-└── src/
-    ├── __init__.py
-    ├── analise.py
-    ├── analise_fadiga.py
-    ├── analise_fluencia.py
-    ├── classificacao.py
-    ├── fadiga.py
-    ├── fluencia.py
-    ├── gui.py
-    └── materiais.py
+FFCalc/
+|-- main.py
+|-- README.md
+|-- requirements.txt
+|-- data/
+|   |-- materiais.csv
+|-- outputs/
+|-- src/
+|   |-- analise.py
+|   |-- analise_dashboard.py
+|   |-- analise_fadiga.py
+|   |-- analise_fluencia.py
+|   |-- classificacao.py
+|   |-- fadiga.py
+|   |-- fluencia.py
+|   |-- gui.py
+|   |-- materiais.py
+|   |-- __init__.py
 ```
 
----
+## Melhorias planejadas
 
-## Papel dos principais arquivos
+- Banco de materiais mais robusto.
+- Propriedades reais de fluencia por material.
+- Fontes normativas e rastreabilidade de dados.
+- Curvas S-N por material.
+- Dano acumulado de Miner.
+- Lei de Paris para propagacao de trinca.
+- Criterios mais avancados de selecao preliminar de materiais.
+- Relatorios tecnicos em PDF.
+- Historico de analises.
 
-### `main.py`
-
-Arquivo principal do projeto.
-
-Responsável por:
-
-- iniciar a interface gráfica por padrão;
-- permitir execução via terminal;
-- controlar argumentos de linha de comando;
-- chamar o módulo de fadiga ou fluência.
-
----
-
-### `src/fadiga.py`
-
-Contém as funções fundamentais de cálculo de fadiga:
-
-- parâmetros do ciclo;
-- Goodman;
-- Soderberg;
-- Gerber.
-
----
-
-### `src/analise_fadiga.py`
-
-Camada de análise do módulo de fadiga.
-
-Responsável por:
-
-- receber entradas;
-- usar propriedades do material;
-- calcular os fatores de segurança;
-- aplicar classificações preliminares;
-- organizar os resultados em dicionários.
-
----
-
-### `src/fluencia.py`
-
-Contém as funções fundamentais de cálculo de fluência:
-
-- conversão de Celsius para Kelvin;
-- temperatura homóloga;
-- taxa de fluência por Norton-Arrhenius;
-- deformação acumulada;
-- tempo estimado até deformação limite.
-
----
-
-### `src/analise_fluencia.py`
-
-Camada de análise do módulo de fluência.
-
-Responsável por:
-
-- aplicar presets didáticos por tipo de material;
-- calcular resultados principais;
-- classificar temperatura homóloga, taxa estimada e consumo do limite;
-- organizar os resultados em dicionários.
-
----
-
-### `src/gui.py`
-
-Contém a interface gráfica do sistema.
-
-Responsável por:
-
-- layout visual;
-- alternância entre os módulos;
-- entradas do usuário;
-- seleção de material;
-- cards de resultado;
-- gráficos;
-- exportação de gráficos em PNG.
-
----
-
-### `src/materiais.py`
-
-Responsável por:
-
-- carregar `data/materiais.csv`;
-- tratar codificação;
-- validar colunas obrigatórias;
-- converter colunas numéricas;
-- listar materiais no terminal;
-- permitir seleção de material por ID no modo CLI.
-
----
-
-### `src/classificacao.py`
-
-Contém a função de classificação preliminar pelo fator de segurança.
-
----
-
-## Tecnologias utilizadas
+## Tecnologias
 
 - Python
+- CustomTkinter
 - Pandas
 - NumPy
 - Matplotlib
-- CustomTkinter
-- Pillow
-
-As demais bibliotecas presentes no `requirements.txt` são dependências auxiliares instaladas junto com os pacotes principais.
-
----
-
-## Instalação
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/Pedro-fcosta/FFcalc.git
-```
-
-### 2. Entrar na pasta
-
-```bash
-cd FFcalc
-```
-
-### 3. Criar ambiente virtual
-
-```bash
-python -m venv .venv
-```
-
-### 4. Ativar ambiente virtual no Windows PowerShell
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-Caso o PowerShell bloqueie a ativação, execute:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-Depois tente ativar novamente:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-### 5. Instalar dependências
-
-```bash
-pip install -r requirements.txt
-```
-
-### 6. Executar o sistema
-
-Interface gráfica:
-
-```bash
-python main.py
-```
-
-Modo terminal — fadiga:
-
-```bash
-python main.py --cli --modulo fadiga
-```
-
-Modo terminal — fluência:
-
-```bash
-python main.py --cli --modulo fluencia
-```
-
----
-
-## Dependências
-
-O projeto utiliza as dependências listadas em `requirements.txt`.
-
-Exemplo de pacotes principais:
-
-```text
-customtkinter
-matplotlib
-numpy
-pandas
-pillow
-```
-
----
-
-## Limitações técnicas
-
-O FFCalc ainda está em desenvolvimento e possui limitações importantes:
-
-- os cálculos são preliminares;
-- os valores dos materiais no CSV são didáticos;
-- os critérios de fadiga são simplificados;
-- a influência de acabamento superficial, tamanho, temperatura, confiabilidade e concentração de tensão ainda não está implementada;
-- não há curva S-N completa nesta versão;
-- não há dano acumulado de Miner nesta versão;
-- não há propagação de trinca por Lei de Paris nesta versão;
-- a análise de fluência usa modelo simplificado;
-- os presets de fluência não substituem dados experimentais;
-- não há validação por normas técnicas;
-- não deve ser usado para tomada de decisão em projeto real.
-
----
-
-## Funcionalidades planejadas
-
-Próximas melhorias possíveis:
-
-- implementar curva S-N;
-- adicionar fatores modificadores do limite de fadiga;
-- adicionar fator de concentração de tensão;
-- implementar dano acumulado de Miner;
-- adicionar múltiplos blocos de carregamento;
-- implementar propagação de trinca por Lei de Paris-Erdogan;
-- melhorar o banco de materiais com fontes técnicas;
-- implementar relatório técnico em PDF;
-- adicionar testes automatizados;
-- melhorar validações de entrada;
-- adicionar logs;
-- criar empacotamento executável;
-- melhorar documentação técnica das equações.
-
----
-
-## Status atual
-
-O projeto está em fase inicial funcional.
-
-A versão atual já permite:
-
-- executar o sistema por interface gráfica;
-- executar os módulos pelo terminal;
-- calcular parâmetros básicos de fadiga;
-- calcular parâmetros preliminares de fluência;
-- selecionar materiais de um CSV;
-- visualizar gráficos;
-- salvar gráficos em PNG.
-
-Ainda não é uma versão final de engenharia, mas já funciona como ferramenta educacional e projeto de portfólio técnico.
-
----
-
-## Autor
-
-Desenvolvido por **Pedro Fernandes da Costa**.
-
-Estudante de Engenharia Mecânica no CEFET/RJ, com interesse em Python aplicado à engenharia, análise de falhas, integridade estrutural, materiais metálicos, manutenção industrial, óleo e gás e indústria pesada.
-
----
-
-## Licença
-
-Este projeto ainda não possui uma licença definida.

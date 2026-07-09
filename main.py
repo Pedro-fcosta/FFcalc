@@ -1,5 +1,6 @@
 import argparse
 
+from src.analise_dashboard import analisar_dashboard
 from src.analise_fadiga import calcular_analise_fadiga, formatar_fator
 from src.analise_fluencia import (
     calcular_analise_fluencia,
@@ -159,6 +160,55 @@ def main_cli_fluencia():
     return 0
 
 
+def main_cli_dashboard():
+    print("=" * 60)
+    print("FFCalc - Modulo Dashboard")
+    print("=" * 60)
+
+    materiais = carregar_materiais()
+
+    if materiais is None:
+        return 1
+
+    print("\nCondicao de operacao para comparar todos os materiais:")
+    sigma_max = ler_float_padrao("Tensao maxima sigma_max [MPa]", 250)
+    sigma_min = ler_float_padrao("Tensao minima sigma_min [MPa]", 50)
+    sigma_creep = ler_float_padrao("Tensao para fluencia sigma_creep [MPa]", 120)
+    temperatura_operacao_c = ler_float_padrao("Temperatura de operacao [C]", 550)
+    tempo_h = ler_float_padrao("Tempo de operacao [h]", 10000)
+    deformacao_limite_pct = ler_float_padrao("Deformacao limite [%]", 1)
+
+    try:
+        ranking = analisar_dashboard(
+            sigma_max=sigma_max,
+            sigma_min=sigma_min,
+            sigma_creep=sigma_creep,
+            temperatura_operacao_c=temperatura_operacao_c,
+            tempo_h=tempo_h,
+            deformacao_limite_pct=deformacao_limite_pct,
+            materiais=materiais,
+        )
+    except ValueError as erro:
+        print(f"Erro: {erro}")
+        return 1
+
+    print("\n" + "=" * 60)
+    print("TOP 5 - DASHBOARD")
+    print("=" * 60)
+
+    for _, material in ranking.head(5).iterrows():
+        print(f"#{int(material['ranking'])} - {material['material']}")
+        print(f"  Menor FS fadiga: {material['menor_fs_fadiga']:.2f}")
+        print(f"  Consumo fluencia: {material['consumo_fluencia_pct']:.2f}%")
+        print(f"  Temperatura homologa: {material['temperatura_homologa']:.3f}")
+        print(f"  Score: {material['score_total']:.2f}")
+        print(f"  Classificacao: {material['classificacao_geral']}")
+        print()
+
+    print_observacao()
+    return 0
+
+
 def formatar_horas(horas):
     if horas == float("inf"):
         return "infinito"
@@ -204,7 +254,7 @@ def main():
     )
     parser.add_argument(
         "--modulo",
-        choices=["fadiga", "fluencia"],
+        choices=["fadiga", "fluencia", "dashboard"],
         default="fadiga",
         help="Modulo usado no modo terminal.",
     )
@@ -215,6 +265,9 @@ def main():
 
     if args.modulo == "fluencia":
         return main_cli_fluencia()
+
+    if args.modulo == "dashboard":
+        return main_cli_dashboard()
 
     return main_cli_fadiga()
 

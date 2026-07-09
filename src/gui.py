@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+from src.analise_dashboard import analisar_dashboard
 from src.analise_fadiga import calcular_analise_fadiga, formatar_fator
 from src.analise_fluencia import (
     calcular_analise_fluencia,
@@ -45,6 +46,7 @@ PILL_CRIT_TEXT = "#04111f"
 MODULOS = {
     "Fadiga": "fadiga",
     "Fluencia": "fluencia",
+    "Dashboard": "dashboard",
 }
 
 
@@ -72,6 +74,7 @@ class FFCalcApp(ctk.CTk):
         self.entrada_vars = {}
         self.cards_resumo = {}
         self.linhas_criterios = {}
+        self.eixo_3 = None
         self.resultado_atual = None
 
         self._criar_layout()
@@ -136,7 +139,7 @@ class FFCalcApp(ctk.CTk):
 
         self.modulo_selector = ctk.CTkSegmentedButton(
             self.painel_entrada,
-            values=["Fadiga", "Fluencia"],
+            values=["Fadiga", "Fluencia", "Dashboard"],
             variable=self.modulo_var,
             command=self._trocar_modulo,
             height=38,
@@ -381,6 +384,32 @@ class FFCalcApp(ctk.CTk):
         widget.configure(bg=SURFACE, highlightthickness=0)
         widget.grid(row=1, column=0, sticky="nsew", padx=18, pady=(0, 18))
 
+    def _configurar_eixos(self, quantidade):
+        self.figura.clear()
+
+        if quantidade == 3:
+            self.eixo_1 = self.figura.add_subplot(1, 3, 1)
+            self.eixo_2 = self.figura.add_subplot(1, 3, 2)
+            self.eixo_3 = self.figura.add_subplot(1, 3, 3)
+            self.figura.subplots_adjust(
+                left=0.055,
+                right=0.98,
+                top=0.84,
+                bottom=0.27,
+                wspace=0.36,
+            )
+        else:
+            self.eixo_1 = self.figura.add_subplot(1, 2, 1)
+            self.eixo_2 = self.figura.add_subplot(1, 2, 2)
+            self.eixo_3 = None
+            self.figura.subplots_adjust(
+                left=0.075,
+                right=0.975,
+                top=0.86,
+                bottom=0.18,
+                wspace=0.32,
+            )
+
     def _trocar_modulo(self, nome_modulo):
         self._configurar_modulo(MODULOS[nome_modulo])
 
@@ -396,17 +425,26 @@ class FFCalcApp(ctk.CTk):
         self._limpar_container(self.cards_frame)
         self._limpar_container(self.resultado_frame)
 
+        if modulo == "dashboard":
+            self.material_card.grid_remove()
+        else:
+            self.material_card.grid(row=1, column=0, sticky="ew", padx=18, pady=(0, 14))
+
         if modulo == "fadiga":
             self._configurar_fadiga()
-        else:
+        elif modulo == "fluencia":
             self._configurar_fluencia()
+        else:
+            self._configurar_dashboard()
 
+        self._configurar_eixos(3 if modulo == "dashboard" else 2)
         self._atualizar_material_card()
         self._desenhar_grafico_vazio()
         self._set_status("Preencha os dados do modulo e clique em Calcular.", "info")
         self._set_status_pill("Aguardando calculo", PILL_INFO, TEXT)
 
     def _configurar_fadiga(self):
+        self.resultado_frame.configure(width=340)
         self.header_title.configure(text="Modulo de Fadiga")
         self.header_subtitle.configure(
             text="Compare Goodman, Soderberg e Gerber para carregamento ciclico."
@@ -437,6 +475,7 @@ class FFCalcApp(ctk.CTk):
         )
 
     def _configurar_fluencia(self):
+        self.resultado_frame.configure(width=340)
         self.header_title.configure(text="Modulo de Fluencia")
         self.header_subtitle.configure(
             text="Estime temperatura homologa, taxa de fluencia e consumo de deformacao."
@@ -508,6 +547,90 @@ class FFCalcApp(ctk.CTk):
             "Detalhes de fluencia",
             "Calcule para visualizar taxa, tempo e consumo.",
         )
+
+    def _configurar_dashboard(self):
+        self.resultado_frame.configure(width=430)
+        self.header_title.configure(text="Modulo Dashboard")
+        self.header_subtitle.configure(
+            text="Compare materiais sob a mesma condicao de fadiga e fluencia."
+        )
+        self.grafico_subtitle.configure(
+            text="Ranking preliminar, fator minimo de fadiga e consumo por fluencia"
+        )
+        self.exemplo_button.configure(text="Usar exemplo do Dashboard")
+        self.calcular_button.configure(text="Calcular Dashboard")
+
+        campos = [
+            ("sigma_max", "Tensao maxima", "sigma_max [MPa]", "250", "Ex.: 250"),
+            ("sigma_min", "Tensao minima", "sigma_min [MPa]", "50", "Ex.: 50"),
+            (
+                "sigma_creep",
+                "Tensao para fluencia",
+                "sigma_creep [MPa]",
+                "120",
+                "Ex.: 120",
+            ),
+            (
+                "temperatura_operacao_c",
+                "Temperatura de operacao",
+                "T [C]",
+                "550",
+                "Ex.: 550",
+            ),
+            ("tempo_h", "Tempo de operacao", "t [h]", "10000", "Ex.: 10000"),
+            (
+                "deformacao_limite_pct",
+                "Deformacao limite",
+                "epsilon_lim [%]",
+                "1",
+                "Ex.: 1",
+            ),
+        ]
+        self._criar_campos_entrada("Condicao de operacao", campos)
+
+        cards = [
+            ("melhor_material", "Melhor material preliminar", "--", "score"),
+            ("maior_fs", "Maior fator minimo", "--", "fadiga"),
+            ("menor_consumo", "Menor consumo", "--", "fluencia"),
+            ("materiais_avaliados", "Materiais avaliados", "--", "total"),
+        ]
+        self._criar_cards_resumo(cards)
+        self._criar_painel_dashboard()
+
+    def _criar_painel_dashboard(self):
+        self.resultado_frame.grid_rowconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            self.resultado_frame,
+            text="Ranking de materiais",
+            text_color=TEXT,
+            font=ctk.CTkFont(size=17, weight="bold"),
+        ).grid(row=0, column=0, sticky="w", padx=18, pady=(16, 6))
+
+        ctk.CTkLabel(
+            self.resultado_frame,
+            text="Comparacao didatica ordenada por score preliminar",
+            text_color=TEXT_MUTED,
+            font=ctk.CTkFont(size=12),
+        ).grid(row=1, column=0, sticky="w", padx=18, pady=(0, 10))
+
+        self.ranking_container = ctk.CTkScrollableFrame(
+            self.resultado_frame,
+            fg_color="transparent",
+            scrollbar_button_color=SURFACE_LIGHT,
+            scrollbar_button_hover_color=ACCENT_DARK,
+        )
+        self.ranking_container.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 14))
+        self.ranking_container.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self.ranking_container,
+            text="Calcule para visualizar o ranking preliminar.",
+            text_color=TEXT_MUTED,
+            justify="left",
+            anchor="w",
+            wraplength=360,
+        ).grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
     def _criar_campos_entrada(self, titulo, campos):
         ctk.CTkLabel(
@@ -684,10 +807,14 @@ class FFCalcApp(ctk.CTk):
                 self.resultado_atual = self._calcular_fadiga()
                 self._mostrar_resultado_fadiga()
                 self._desenhar_graficos_fadiga()
-            else:
+            elif self.modulo_atual == "fluencia":
                 self.resultado_atual = self._calcular_fluencia()
                 self._mostrar_resultado_fluencia()
                 self._desenhar_graficos_fluencia()
+            else:
+                self.resultado_atual = self._calcular_dashboard()
+                self._mostrar_resultado_dashboard()
+                self._desenhar_graficos_dashboard()
         except ValueError as erro:
             self.resultado_atual = None
             self.salvar_button.configure(state="disabled")
@@ -741,6 +868,23 @@ class FFCalcApp(ctk.CTk):
             material=material,
         )
 
+    def _calcular_dashboard(self):
+        return analisar_dashboard(
+            sigma_max=self._ler_float("sigma_max", "tensao maxima"),
+            sigma_min=self._ler_float("sigma_min", "tensao minima"),
+            sigma_creep=self._ler_float("sigma_creep", "tensao para fluencia"),
+            temperatura_operacao_c=self._ler_float(
+                "temperatura_operacao_c",
+                "temperatura de operacao",
+            ),
+            tempo_h=self._ler_float("tempo_h", "tempo de operacao"),
+            deformacao_limite_pct=self._ler_float(
+                "deformacao_limite_pct",
+                "deformacao limite",
+            ),
+            materiais=self.materiais,
+        )
+
     def limpar(self):
         self.resultado_atual = None
         self.salvar_button.configure(state="disabled")
@@ -750,7 +894,7 @@ class FFCalcApp(ctk.CTk):
     def usar_exemplo(self):
         if self.modulo_atual == "fadiga":
             valores = {"sigma_max": "250", "sigma_min": "50"}
-        else:
+        elif self.modulo_atual == "fluencia":
             preset = self._preset_material_atual()
             valores = {
                 "tensao_mpa": "120",
@@ -761,6 +905,15 @@ class FFCalcApp(ctk.CTk):
                 "expoente_n": f"{preset['expoente_n']:.2f}",
                 "energia_ativacao_kj_mol": f"{preset['energia_ativacao_kj_mol']:.0f}",
                 "deformacao_limite_percentual": "1",
+            }
+        else:
+            valores = {
+                "sigma_max": "250",
+                "sigma_min": "50",
+                "sigma_creep": "120",
+                "temperatura_operacao_c": "550",
+                "tempo_h": "10000",
+                "deformacao_limite_pct": "1",
             }
 
         for chave, valor in valores.items():
@@ -773,7 +926,12 @@ class FFCalcApp(ctk.CTk):
             self._set_status("Calcule antes de salvar o grafico.", "erro")
             return
 
-        nome = "grafico_fadiga.png" if self.modulo_atual == "fadiga" else "grafico_fluencia.png"
+        nomes = {
+            "fadiga": "grafico_fadiga.png",
+            "fluencia": "grafico_fluencia.png",
+            "dashboard": "grafico_dashboard.png",
+        }
+        nome = nomes[self.modulo_atual]
         saida = RAIZ_PROJETO / "outputs" / nome
         saida.parent.mkdir(exist_ok=True)
         self.figura.savefig(saida, dpi=180, facecolor=PLOT_BG, bbox_inches="tight")
@@ -854,11 +1012,85 @@ class FFCalcApp(ctk.CTk):
             )
             linha["classificacao"].configure(text=dados["classificacao"])
 
+    def _mostrar_resultado_dashboard(self):
+        ranking = self.resultado_atual
+        melhor = ranking.iloc[0]
+        maior_fs = ranking.loc[ranking["menor_fs_fadiga"].idxmax()]
+        menor_consumo = ranking.loc[ranking["consumo_fluencia_pct"].idxmin()]
+
+        self.cards_resumo["melhor_material"].configure(
+            text=f"{self._abreviar(melhor['material'], 18)}\n{melhor['score_total']:.2f}"
+        )
+        self.cards_resumo["maior_fs"].configure(
+            text=f"{self._abreviar(maior_fs['material'], 18)}\n{maior_fs['menor_fs_fadiga']:.2f}"
+        )
+        self.cards_resumo["menor_consumo"].configure(
+            text=(
+                f"{self._abreviar(menor_consumo['material'], 18)}\n"
+                f"{menor_consumo['consumo_fluencia_pct']:.2f}%"
+            )
+        )
+        self.cards_resumo["materiais_avaliados"].configure(text=str(len(ranking)))
+
+        self._preencher_ranking_dashboard(ranking)
+
+    def _preencher_ranking_dashboard(self, ranking):
+        self._limpar_container(self.ranking_container)
+
+        for indice, (_, material) in enumerate(ranking.iterrows()):
+            cor = self._cor_score_dashboard(material["score_total"])
+            card = ctk.CTkFrame(
+                self.ranking_container,
+                fg_color=SURFACE_SOFT,
+                corner_radius=8,
+                border_width=1,
+                border_color=cor,
+            )
+            card.grid(row=indice, column=0, sticky="ew", pady=(0, 10))
+            card.grid_columnconfigure(0, weight=1)
+
+            titulo = (
+                f"#{int(material['ranking'])}  "
+                f"{material['material']}"
+            )
+            ctk.CTkLabel(
+                card,
+                text=titulo,
+                text_color=TEXT,
+                font=ctk.CTkFont(size=14, weight="bold"),
+                anchor="w",
+                wraplength=370,
+            ).grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 2))
+
+            detalhes = (
+                f"FS min: {material['menor_fs_fadiga']:.2f} | "
+                f"Fluencia: {material['consumo_fluencia_pct']:.2f}%\n"
+                f"T/Tf: {material['temperatura_homologa']:.3f} | "
+                f"Score: {material['score_total']:.2f}"
+            )
+            ctk.CTkLabel(
+                card,
+                text=detalhes,
+                text_color=TEXT_MUTED,
+                font=ctk.CTkFont(size=12),
+                justify="left",
+                anchor="w",
+            ).grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 4))
+
+            ctk.CTkLabel(
+                card,
+                text=material["classificacao_geral"],
+                text_color=cor,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                justify="left",
+                anchor="w",
+                wraplength=370,
+            ).grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 10))
+
     def _desenhar_grafico_vazio(self):
-        self.eixo_1.clear()
-        self.eixo_2.clear()
-        self._preparar_eixo(self.eixo_1)
-        self._preparar_eixo(self.eixo_2)
+        for eixo in self._eixos_ativos():
+            eixo.clear()
+            self._preparar_eixo(eixo)
 
         if self.modulo_atual == "fadiga":
             textos = (
@@ -867,16 +1099,27 @@ class FFCalcApp(ctk.CTk):
                 "Margem de seguranca",
                 "As barras mostram o fator n por criterio.",
             )
-        else:
+        elif self.modulo_atual == "fluencia":
             textos = (
                 "Taxa de fluencia x temperatura",
                 "Calcule para estimar a sensibilidade termica.",
                 "Deformacao acumulada x tempo",
                 "A linha mostra a evolucao ate o limite informado.",
             )
+        else:
+            textos = (
+                "FS minimo por material",
+                "Compare a margem preliminar de fadiga.",
+                "Consumo por fluencia",
+                "Compare o consumo do limite informado.",
+                "Score geral",
+                "Ranking didatico de adequacao preliminar.",
+            )
 
         self._texto_central(self.eixo_1, textos[0], textos[1])
         self._texto_central(self.eixo_2, textos[2], textos[3])
+        if self.eixo_3 is not None:
+            self._texto_central(self.eixo_3, textos[4], textos[5])
         self.canvas.draw_idle()
 
     def _texto_central(self, eixo, titulo, subtitulo):
@@ -1141,6 +1384,69 @@ class FFCalcApp(ctk.CTk):
 
         self.canvas.draw_idle()
 
+    def _desenhar_graficos_dashboard(self):
+        ranking = self.resultado_atual
+        nomes = [self._abreviar(nome, 14) for nome in ranking["material"]]
+        posicoes = np.arange(len(ranking))
+
+        fs = ranking["menor_fs_fadiga"].to_numpy(dtype=float)
+        consumo = ranking["consumo_fluencia_pct"].to_numpy(dtype=float)
+        score = ranking["score_total"].to_numpy(dtype=float)
+
+        self.eixo_1.clear()
+        self._preparar_eixo(self.eixo_1)
+        fs_plot, topo_fs = self._valores_plot(fs, minimo_topo=3.0)
+        barras_fs = self.eixo_1.bar(
+            posicoes,
+            fs_plot,
+            color=[self._cor_fator_fadiga(valor) for valor in fs],
+            edgecolor=TEXT,
+            linewidth=0.7,
+        )
+        self.eixo_1.axhline(1, color=DANGER, linestyle="--", linewidth=1.1)
+        self.eixo_1.axhline(2, color=SUCCESS, linestyle="--", linewidth=1.1)
+        self.eixo_1.set_title("Fadiga por material", color=TEXT, fontsize=12, weight="bold")
+        self.eixo_1.set_ylabel("menor fator n", color=TEXT_MUTED)
+        self.eixo_1.set_ylim(0, topo_fs)
+        self._configurar_rotulos_x(self.eixo_1, posicoes, nomes)
+        self._rotular_barras(self.eixo_1, barras_fs, fs, topo_fs, "{:.2f}")
+
+        self.eixo_2.clear()
+        self._preparar_eixo(self.eixo_2)
+        consumo_plot, topo_consumo = self._valores_consumo_dashboard(consumo)
+        barras_consumo = self.eixo_2.bar(
+            posicoes,
+            consumo_plot,
+            color=[self._cor_consumo_dashboard(valor) for valor in consumo],
+            edgecolor=TEXT,
+            linewidth=0.7,
+        )
+        self.eixo_2.axhline(100, color=DANGER, linestyle="--", linewidth=1.1)
+        self.eixo_2.set_title("Consumo por fluencia", color=TEXT, fontsize=12, weight="bold")
+        self.eixo_2.set_ylabel("consumo [%]", color=TEXT_MUTED)
+        self.eixo_2.set_ylim(0, topo_consumo)
+        self._configurar_rotulos_x(self.eixo_2, posicoes, nomes)
+        self._rotular_barras(self.eixo_2, barras_consumo, consumo, topo_consumo, "{:.1f}%")
+
+        self.eixo_3.clear()
+        self._preparar_eixo(self.eixo_3)
+        barras_score = self.eixo_3.bar(
+            posicoes,
+            score,
+            color=[self._cor_score_dashboard(valor) for valor in score],
+            edgecolor=TEXT,
+            linewidth=0.7,
+        )
+        self.eixo_3.axhline(0.50, color=WARNING, linestyle="--", linewidth=1.1)
+        self.eixo_3.axhline(0.75, color=SUCCESS, linestyle="--", linewidth=1.1)
+        self.eixo_3.set_title("Score geral", color=TEXT, fontsize=12, weight="bold")
+        self.eixo_3.set_ylabel("score 0-1", color=TEXT_MUTED)
+        self.eixo_3.set_ylim(0, 1.05)
+        self._configurar_rotulos_x(self.eixo_3, posicoes, nomes)
+        self._rotular_barras(self.eixo_3, barras_score, score, 1.05, "{:.2f}")
+
+        self.canvas.draw_idle()
+
     def _preparar_eixo(self, eixo):
         eixo.set_facecolor(PLOT_PANEL)
         eixo.grid(True, color=GRID, alpha=0.45, linewidth=0.8)
@@ -1150,6 +1456,14 @@ class FFCalcApp(ctk.CTk):
         eixo.title.set_color(TEXT)
         eixo.xaxis.label.set_color(TEXT_MUTED)
         eixo.yaxis.label.set_color(TEXT_MUTED)
+
+    def _eixos_ativos(self):
+        eixos = [self.eixo_1, self.eixo_2]
+
+        if self.eixo_3 is not None:
+            eixos.append(self.eixo_3)
+
+        return eixos
 
     def _aplicar_legenda(self, eixo):
         legenda = eixo.legend(
@@ -1205,6 +1519,12 @@ class FFCalcApp(ctk.CTk):
     def _atualizar_material_card(self):
         material = self._material_selecionado()
 
+        if self.modulo_atual == "dashboard":
+            self.material_info_label.configure(
+                text="Dashboard compara todos os materiais cadastrados no CSV."
+            )
+            return
+
         if material is None:
             self.material_info_label.configure(text="Nenhum material carregado.")
             return
@@ -1253,6 +1573,16 @@ class FFCalcApp(ctk.CTk):
                 self._set_status_pill("Fadiga: critico", PILL_CRIT, PILL_CRIT_TEXT)
             return
 
+        if self.modulo_atual == "dashboard":
+            score = float(self.resultado_atual.iloc[0]["score_total"])
+            if score >= 0.75:
+                self._set_status_pill("Dashboard: bom preliminar", PILL_OK)
+            elif score >= 0.50:
+                self._set_status_pill("Dashboard: cautela", PILL_WARN)
+            else:
+                self._set_status_pill("Dashboard: critico", PILL_CRIT, PILL_CRIT_TEXT)
+            return
+
         consumo = self.resultado_atual["resultados"]["consumo_limite_percentual"]
         if consumo < 50:
             self._set_status_pill("Fluencia: baixo risco", PILL_OK)
@@ -1297,6 +1627,67 @@ class FFCalcApp(ctk.CTk):
 
         return f"{horas:.0f} h"
 
+    def _abreviar(self, texto, tamanho):
+        texto = str(texto)
+
+        if len(texto) <= tamanho:
+            return texto
+
+        return texto[: tamanho - 3] + "..."
+
+    def _configurar_rotulos_x(self, eixo, posicoes, nomes):
+        eixo.set_xticks(posicoes)
+        eixo.set_xticklabels(nomes, rotation=35, ha="right", color=TEXT_MUTED, fontsize=8)
+
+    def _rotular_barras(self, eixo, barras, valores, topo, formato):
+        for barra, valor in zip(barras, valores):
+            if np.isfinite(valor):
+                rotulo = formato.format(valor)
+            else:
+                rotulo = "inf"
+
+            eixo.text(
+                barra.get_x() + barra.get_width() / 2,
+                barra.get_height() + topo * 0.025,
+                rotulo,
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color=TEXT,
+                weight="bold",
+            )
+
+    def _valores_plot(self, valores, minimo_topo):
+        finitos = [valor for valor in valores if np.isfinite(valor)]
+        topo = max(minimo_topo, max(finitos, default=1.0) * 1.25)
+        valores_plot = np.array(
+            [valor if np.isfinite(valor) else topo for valor in valores],
+            dtype=float,
+        )
+        return valores_plot, topo
+
+    def _valores_consumo_dashboard(self, valores):
+        finitos = [valor for valor in valores if np.isfinite(valor)]
+        maior_finito = max(finitos, default=1.0)
+
+        if maior_finito > 120:
+            topo = 130.0
+            valores_plot = np.array(
+                [
+                    min(valor, 120.0) if np.isfinite(valor) else 120.0
+                    for valor in valores
+                ],
+                dtype=float,
+            )
+            return valores_plot, topo
+
+        topo = max(120.0, maior_finito * 1.25)
+        valores_plot = np.array(
+            [valor if np.isfinite(valor) else topo for valor in valores],
+            dtype=float,
+        )
+        return valores_plot, topo
+
     def _cor_fator_fadiga(self, valor):
         if valor >= 2:
             return SUCCESS
@@ -1325,6 +1716,27 @@ class FFCalcApp(ctk.CTk):
             return SUCCESS
         if valor < 100:
             return WARNING
+        return DANGER
+
+    def _cor_consumo_dashboard(self, valor):
+        if not np.isfinite(valor):
+            return DANGER
+
+        if valor < 50:
+            return SUCCESS
+
+        if valor < 100:
+            return WARNING
+
+        return DANGER
+
+    def _cor_score_dashboard(self, valor):
+        if valor >= 0.75:
+            return SUCCESS
+
+        if valor >= 0.50:
+            return WARNING
+
         return DANGER
 
     def _limpar_container(self, container):
