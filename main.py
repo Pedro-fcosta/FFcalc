@@ -7,6 +7,12 @@ from src.fadiga import (
 
 from src.classificacao import classificar_fator_seguranca
 
+from src.materiais import (
+    carregar_materiais,
+    listar_materiais,
+    selecionar_material
+)
+
 
 def main():
     print("=" * 60)
@@ -18,9 +24,25 @@ def main():
     sigma_max = float(input("Digite a tensão máxima σmax [MPa]: "))
     sigma_min = float(input("Digite a tensão mínima σmin [MPa]: "))
 
-    limite_fadiga = float(input("Digite o limite de fadiga Se [MPa]: "))
-    limite_resistencia = float(input("Digite o limite de resistência Sut [MPa]: "))
-    limite_escoamento = float(input("Digite o limite de escoamento Sy [MPa]: "))
+
+    materiais = carregar_materiais()
+
+    if materiais is None:
+        return
+
+    listar_materiais(materiais)
+    material = selecionar_material(materiais)
+
+    limite_fadiga = material["limite_fadiga_mpa"]
+    limite_resistencia = material["limite_resistencia_mpa"]
+    limite_escoamento = material["limite_escoamento_mpa"]
+
+    print("\nMaterial selecionado:")
+    print(f"Material: {material['material']}")
+    print(f"Limite de fadiga Se: {limite_fadiga:.2f} MPa")
+    print(f"Limite de resistência Sut: {limite_resistencia:.2f} MPa")
+    print(f"Limite de escoamento Sy: {limite_escoamento:.2f} MPa")
+
 
     ciclo = calcular_parametros_ciclo(sigma_max, sigma_min)
 

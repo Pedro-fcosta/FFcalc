@@ -1,0 +1,6 @@
+"id;material;limite_fadiga_mpa;limite_resistencia_mpa;limite_escoamento_mpa;observacao"
+"1;Aço carbono genérico;200;500;350;Valores didáticos para teste inicial"
+"2;Aço ASTM A36;160;400;250;Valores aproximados para uso educacional"
+"3;Aço ASTM A572 Gr 50;190;450;345;Valores aproximados para uso educacional"
+"4;Aço inoxidável austenítico genérico;180;520;215;Valores aproximados para uso educacional"
+"5;Alumínio 7075-T6;160;570;500;Valores aproximados para uso educacional"
